@@ -73,7 +73,7 @@ f3_gpar_post =
     )
 
 # Plotting
-plotly();
+gr();
 overall_plot = plot(layout = (3, 1), legend = false);
 # Plot data
 plot!(overall_plot, x_true, y_true, color = :orange, label = "True")
@@ -113,12 +113,6 @@ plot!(
     linealpha = 1,
 )
 
-# # Plot multi-output gp
-# all_y_mean = mean(full_gp_post(repeat(x_true, 3)))
-# plot!(overall_plot[1], x_true, all_y_mean[1:TRUE_SAMPLES], color=:red)
-# plot!(overall_plot[2], x_true, all_y_mean[TRUE_SAMPLES + 1 : 2 * TRUE_SAMPLES], color=:red)
-# plot!(overall_plot[3], x_true, all_y_mean[2 * TRUE_SAMPLES + 1 : 3 * TRUE_SAMPLES], color=:red)
-
 # Plot GPAR
 # First plot is easy
 y1_mean_vals = mean(f1_gpar_post(x_true))
@@ -139,3 +133,5 @@ plot!(overall_plot[2], x_true, y2_mean_vals, color = :blue, linealpha = 1)
 x_y1_y2_true = ColVecs(transpose(hcat(x_true, y1_mean_vals, y2_mean_vals)))
 y3_mean_vals = mean(f3_gpar_post(x_y1_y2_true))
 plot!(overall_plot[3], x_true, y3_mean_vals, color = :blue, linealpha = 1)
+
+display(overall_plot)
