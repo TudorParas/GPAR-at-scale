@@ -19,9 +19,10 @@ x, y_obs, x_true, y_true = generate_small_dataset()
 function unpack_eq(params)
     # Unpack the parameters for a GP with EQ kernel
     l = exp(params[1]) + 1e-6
-    noise_sigma = exp(params[2]) + 1e-6
+    process_var = exp(params[2]) + 1e-6
+    noise_sigma = exp(params[3]) + 1e-6
 
-    return l, noise_sigma
+    return l, process_var, noise_sigma
 end
 
 """
@@ -50,29 +51,28 @@ function create_optim_gp_post(
     end
     # Helper function used to compute negative log marignal lik for params
     function nlml(params)
-        l, noise_sigma = unpack_eq(params)
-        kernel = stretch(EQ(), l)
+        l, process_var, noise_sigma = unpack_eq(params)
+        kernel = (process_var ^ 2) * stretch(EQ(), 1 / l)
         f = GP(kernel, GPC())
 
         return -logpdf(f(input_locations, noise_sigma^2), outputs)
     end
     # Optimize the parameters
-    params = randn(2)
+    params = randn(3)
     results = Optim.optimize(
         nlml,
-        params -> gradient(nlml, params)[1],
         params,
-        BFGS();
-        inplace = false,
+        NelderMead();
     )
-    opt_l, opt_noise_sigma = unpack_eq(results.minimizer)
+    opt_l, opt_process_var, opt_noise_sigma  = unpack_eq(results.minimizer)
     if debug
         println()
         println("Optimum L: $(opt_l) ")
         println("Optimum noise: $(opt_noise_sigma)")
+        println("Optimum Process Variance: $(opt_process_var)")
     end
-
-    gp = GP(stretch(EQ(), opt_l), GPC())
+    gp_kernel =  (opt_process_var ^ 2) * stretch(EQ(), 1 / opt_l)
+    gp = GP(gp_kernel, GPC())
     gp_post = gp | (gp(input_locations, opt_noise_sigma^2) ← outputs)
 
     return gp_post
