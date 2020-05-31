@@ -161,9 +161,9 @@ function create_optim_gpar_post(
     return gpar_post
 end
 
-f1_gp_post = create_optim_gp_post(x, y_obs[1], Matern52())
-f2_gp_post = create_optim_gp_post(x, y_obs[2], Matern52())
-f3_gp_post = create_optim_gp_post(x, y_obs[3], EQ())
+f1_gp_post = create_optim_gp_post(x, y_obs[1], kernel_structure=Matern52())
+f2_gp_post = create_optim_gp_post(x, y_obs[2], kernel_structure=Matern52())
+f3_gp_post = create_optim_gp_post(x, y_obs[3], kernel_structure=EQ())
 
 f1_gpar_post = create_optim_gpar_post(
     x,

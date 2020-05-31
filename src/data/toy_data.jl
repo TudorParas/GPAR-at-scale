@@ -3,9 +3,7 @@ using Distributions
 export generate_small_dataset, generate_big_dataset
 
 START = 0
-STOP_OBS = 1
-STOP_TRUE = 1.0  # might be different to see how they generalize
-
+STEP_SIZE = 0.03
 NOISE_MU = 0  # mean of noise
 NOISE_SIGMA = 0.05
 
@@ -15,7 +13,8 @@ f3 = ((x, y1, y2) -> y2 .* (y1 .^ 2) + 3 * x)
 
 function _generate_toy_data(data_samples, true_samples)
     # Generate True function
-    x_true = range(START, STOP_TRUE, length=true_samples)
+    stop = STEP_SIZE * data_samples
+    x_true = range(START, stop, length=true_samples)
     y1_true = f1(x_true)
     y2_true = f2(x_true, y1_true)
     y3_true = f3(x_true, y1_true, y2_true)
@@ -24,7 +23,7 @@ function _generate_toy_data(data_samples, true_samples)
     # Create the noisy normal distribution
     normal_noise = Normal(NOISE_MU, NOISE_SIGMA^2)
     # Add the noise to the observations
-    x = range(START, STOP_OBS, length = data_samples)
+    x = range(START, stop, length = data_samples)
     y1 = f1(x) + rand(normal_noise, data_samples)
     y2 = f2(x, y1) + rand(normal_noise, data_samples)
     y3 = f3(x, y1, y2) + rand(normal_noise, data_samples)

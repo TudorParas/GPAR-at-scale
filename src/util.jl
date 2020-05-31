@@ -40,20 +40,17 @@ vanilla_kernel = EQ()
 time_mask = get_time_mask(3)  # 3 is the number of vals in an input vector
 time_kernel = stretch(EQ(), time_mask)
 
+# These two should be the same
 time_K = pairwise(time_kernel, xs, ys)
 time_true_K = pairwise(vanilla_kernel, xs_only_first, ys_only_first)
 # Compare the two results
-println("Time true K: $(time_true_K)")
-println("Time masked K: $(time_K)")
 
 out_mask = get_output_mask(3)
 out_kernel = stretch(EQ(), out_mask)
 
+# These two should be the same
 out_K = pairwise(out_kernel, xs, ys)
 out_true_K = pairwise(vanilla_kernel, xs_no_first, ys_no_first)
-
-println("Out true K: $(out_true_K)")
-println("Out masked K: $(out_K)")
 """
 
 
