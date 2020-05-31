@@ -16,11 +16,11 @@ SAMPLES = 1  # samples we take for the GP representation
 
 x, y_obs, x_true, y_true = generate_small_dataset()
 
-function unpack_eq(params)
+function unpack_gp(params)
     # Unpack the parameters for a GP with EQ kernel
-    l = exp(params[1]) + 1e-6
-    process_var = exp(params[2]) + 1e-6
-    noise_sigma = exp(params[3]) + 1e-6
+    l = exp(params[1]) + 1e-3
+    process_var = exp(params[2]) + 1e-3
+    noise_sigma = exp(params[3]) + 1e-3
 
     return l, process_var, noise_sigma
 end
@@ -28,70 +28,163 @@ end
 """
 Compute the optimised posterior for a EQ kenel GP.
 
-input_locations: array of arrays of length L
+input_locations: array of length L
 outputs: array of length L
 
 # Examples:
 '''julia-repl
-julia> create_optim_gp_post([[0.5, 0.2], [4.2, 4.5]], [-2, 2])
+julia> create_optim_gp_post([0.5, 0.2], [-2, 2])
 
 In this example we have the mappings:
-(0.5, 4.2) -> -2
-(0.2, 4.5) -> 2
+0.5 -> -2
+0.2 -> 2
 """
 function create_optim_gp_post(
     input_locations,
     outputs;
-    multi_input::Bool = false,
+    kernel_structure::Kernel = EQ(),
     debug::Bool = false,
 )
-    # If multi-dimnesional inputs then use colvecs
-    if multi_input
-        input_locations = to_ColVecs(input_locations)
-    end
     # Helper function used to compute negative log marignal lik for params
     function nlml(params)
-        l, process_var, noise_sigma = unpack_eq(params)
-        kernel = (process_var ^ 2) * stretch(EQ(), 1 / l)
-        f = GP(kernel, GPC())
+        l, process_var, noise_sigma = unpack_gp(params)
+        curr_kernel = Stheno.kernel(kernel_structure; l = l, s = process_var^2)
+        f = GP(curr_kernel, GPC())
 
         return -logpdf(f(input_locations, noise_sigma^2), outputs)
     end
     # Optimize the parameters
     params = randn(3)
-    results = Optim.optimize(
-        nlml,
-        params,
-        NelderMead();
-    )
-    opt_l, opt_process_var, opt_noise_sigma  = unpack_eq(results.minimizer)
+    results = Optim.optimize(nlml, params, NelderMead();)
+    opt_l, opt_process_var, opt_noise_sigma = unpack_gp(results.minimizer)
     if debug
         println()
         println("Optimum L: $(opt_l) ")
         println("Optimum noise: $(opt_noise_sigma)")
         println("Optimum Process Variance: $(opt_process_var)")
     end
-    gp_kernel =  (opt_process_var ^ 2) * stretch(EQ(), 1 / opt_l)
+    gp_kernel = kernel(kernel_structure, l = opt_l, s = opt_process_var^2)
     gp = GP(gp_kernel, GPC())
     gp_post = gp | (gp(input_locations, opt_noise_sigma^2) ← outputs)
 
     return gp_post
 end
 
-f1_gp_post = create_optim_gp_post(x, y_obs[1])
-f2_gp_post = create_optim_gp_post(x, y_obs[2])
-f3_gp_post = create_optim_gp_post(x, y_obs[3])
 
-f1_gpar_post = create_optim_gp_post(x, y_obs[1], debug = true)
-f2_gpar_post = create_optim_gp_post(
+function unpack_gpar(params)
+    # Unpack the parameters for a GPAR with EQ kernel
+    time_l = exp(params[1]) + 1e-3
+    time_var = exp(params[2]) + 1e-3
+    out_l = exp(params[3]) + 1e-3
+    out_var = exp(params[4]) + 1e-3
+
+    noise_sigma = exp(params[5]) + 1e-3
+
+    return time_l, time_var, out_l, out_var, noise_sigma
+end
+"""
+Compute the optimised posterior for a EQ kenel GPAR.
+
+time_input: array of length L
+prev_outputs: array of arrays of length L
+outputs: array of length L
+
+# Examples:
+'''julia-repl
+julia> create_optim_gpar_post([1, 2], [[0.5, 0.2], [4.2, 4.5]], [-2, 2])
+
+In this example we have the mappings:
+(1, 0.5, 4.2) -> -2
+(2, 0.2, 4.5) -> 2
+"""
+function create_optim_gpar_post(
+    input_locations,
+    outputs;
+    time_kernel::Kernel = EQ(),
+    out_kernel::Kernel = EQ(),
+    multi_input::Bool = true,  # False if it is the first gpar kernel
+    debug::Bool = false,
+)
+    if !multi_input  # same case as usual gp
+        return create_optim_gp_post(
+            input_locations,
+            outputs,
+            kernel_structure = time_kernel;
+            debug = debug,
+        )
+    end
+    # Otherwise create an optimised GPAR
+    input_length = length(input_locations)
+    input_locations = to_ColVecs(input_locations)  # transform into ColVecs
+    # Helper function that strings together the GPAR kernel
+    function create_gpar_kernel(time_l, time_var, out_l, out_var)
+        time_mask = get_time_mask(input_length)
+        masked_time_kernel = stretch(time_kernel, time_mask)
+        scaled_time_kernel =
+            kernel(masked_time_kernel, l = time_l, s = time_var^2)
+
+        out_mask = get_output_mask(input_length)
+        masked_out_kernel = stretch(out_kernel, out_mask)
+        scaled_out_kernel = kernel(masked_out_kernel, l = out_l, s = out_var^2)
+
+        final_kernel = scaled_time_kernel + scaled_out_kernel
+        return final_kernel
+    end
+
+    # Helper function used to compute negative log marignal lik for params
+    function nlml(params)
+        time_l, time_var, out_l, out_var, noise_sigma = unpack_gpar(params)
+        kernel = create_gpar_kernel(time_l, time_var, out_l, out_var)
+        f = GP(kernel, GPC())
+
+        return -logpdf(f(input_locations, noise_sigma^2), outputs)
+    end
+    # Optimize the parameters
+    params = randn(5)
+    results = Optim.optimize(nlml, params, NelderMead())
+
+    opt_time_l, opt_time_var, opt_out_l, opt_out_var, opt_noise_sigma =
+        unpack_gpar(results.minimizer)
+    if debug
+        println()
+        println("Optimum time L: $(opt_time_l) ")
+        println("Optimum time var: $(opt_time_var)")
+        println("Optimum outputs l: $(opt_out_l)")
+        println("Optimum outputs l: $(opt_out_var)")
+        println("Optimum Noise std: $(opt_noise_sigma)")
+    end
+    gpar_kernel =
+        create_gpar_kernel(opt_time_l, opt_time_var, opt_out_l, opt_out_var)
+    gpar = GP(gpar_kernel, GPC())
+    gpar_post = gpar | (gpar(input_locations, opt_noise_sigma^2) ← outputs)
+
+    return gpar_post
+end
+
+f1_gp_post = create_optim_gp_post(x, y_obs[1], Matern52())
+f2_gp_post = create_optim_gp_post(x, y_obs[2], Matern52())
+f3_gp_post = create_optim_gp_post(x, y_obs[3], EQ())
+
+f1_gpar_post = create_optim_gpar_post(
+    x,
+    y_obs[1];
+    time_kernel = EQ(),
+    multi_input = false,
+    debug = true,
+)
+f2_gpar_post = create_optim_gpar_post(
     [x, y_obs[1]],
-    y_obs[2],
+    y_obs[2];
+    time_kernel = Matern52(),
+    out_kernel = EQ(),
     multi_input = true,
     debug = true,
 )
-f3_gpar_post = create_optim_gp_post(
+f3_gpar_post = create_optim_gpar_post(
     [x, y_obs[1], y_obs[2]],
-    y_obs[3],
+    y_obs[3];
+    time_kernel = Matern52(),
+    out_kernel = Matern52(),
     multi_input = true,
     debug = true,
 )
