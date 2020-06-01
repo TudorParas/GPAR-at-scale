@@ -3,7 +3,7 @@ using Distributions
 export generate_small_dataset, generate_big_dataset
 
 START = 0
-STEP_SIZE = 0.03
+STEP_SIZE = 1 / 30
 NOISE_MU = 0  # mean of noise
 NOISE_SIGMA = 0.05
 
