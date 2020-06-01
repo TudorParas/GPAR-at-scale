@@ -8,9 +8,6 @@ include("data\\toy_data.jl")
 include("optimized.jl")
 
 function run_optimized()
-    SAMPLES = 1  # samples we take for the GP representation
-
-    x, y_obs, x_true, y_true = generate_small_dataset()
     f1_gp_post = create_optim_gp_post(x, y_obs[1], kernel_structure=Matern52())
     f2_gp_post = create_optim_gp_post(x, y_obs[2], kernel_structure=Matern52())
     f3_gp_post = create_optim_gp_post(x, y_obs[3], kernel_structure=EQ())
