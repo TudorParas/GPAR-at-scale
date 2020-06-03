@@ -1,19 +1,11 @@
 using Stheno
 using TemporalGPs: to_sde, smooth, SArrayStorage
-using Plots
 using Optim
 using Zygote: gradient
 using Random
 
 include("data\\toy_data.jl")
-
-function unpack_gp(params)
-    l = exp(params[1]) + 1e-3
-    process_var = exp(params[2]) + 1e-3
-    noise_sigma = exp(params[3]) + 1e-3
-
-    return l, process_var, noise_sigma
-end
+include("util.jl")
 
 """
 Create LGSSM for the latent locations and the given observation noise.

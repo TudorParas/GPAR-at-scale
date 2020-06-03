@@ -11,6 +11,29 @@ function to_ColVecs(inputs)
     return ColVecs(tranposed)
 end
 
+"""
+Functions to unpack positive hyperparameters. Used for optimization purposes.
+"""
+function unpack_gp(params)
+    # Unpack the parameters for a GP with EQ kernel
+    l = exp(params[1]) + 1e-3
+    process_var = exp(params[2]) + 1e-3
+    noise_sigma = exp(params[3]) + 1e-3
+
+    return l, process_var, noise_sigma
+end
+
+function unpack_gpar(params)
+    # Unpack the parameters for a GPAR with EQ kernel
+    time_l = exp(params[1]) + 1e-3
+    time_var = exp(params[2]) + 1e-3
+    out_l = exp(params[3]) + 1e-3
+    out_var = exp(params[4]) + 1e-3
+
+    noise_sigma = exp(params[5]) + 1e-3
+
+    return time_l, time_var, out_l, out_var, noise_sigma
+end
 
 """
 The masks are meant to be used toghether when constructing a GPAR kernel so
