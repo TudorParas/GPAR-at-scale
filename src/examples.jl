@@ -7,6 +7,7 @@ using Suppressor
 
 include("data\\toy_data.jl")
 include("optimized.jl")
+include("temporal_gp_inference.jl")
 
 function run_optimized()
     SAMPLES = 1  # samples we take for the GP representation
@@ -102,4 +103,51 @@ function run_optimized()
     end
 end
 
-run_optimized()
+
+function run_temporal_gp_inference()
+    x, y_obs, x_true, y_true = generate_big_dataset()
+
+    _, f1_out = get_sde_predictions(
+        x,
+        y_obs[1],
+        x_true;
+        kernel_structure = Matern52(),
+        debug = true,
+    )
+    _, f2_out = get_sde_predictions(x, y_obs[2], x_true)
+    _, f3_out = get_sde_predictions(x, y_obs[3], x_true)
+    # Plotting
+    gr();
+    overall_plot = plot(layout = (3, 1), legend = false);
+    # Plot data
+    # # Code used to plot the the magnitude of the observation noise
+    # scatter!(overall_plot[1], x, y_obs[1], color=:black, alpha=0.1)
+    # scatter!(overall_plot[2], x, y_obs[2], color=:black, alpha=0.1)
+    # scatter!(overall_plot[3], x, y_obs[3], color=:black, alpha=0.1)
+
+    plot!(overall_plot, x_true, y_true, color = :orange, label = "True")
+
+    # Plot posterior mean of the IGP results
+    f1_posterior_mean = [f.m[1] for f in f1_out]
+    plot!(overall_plot[1], x_true, f1_posterior_mean, color = :green, linealpha = 1)
+    f2_posterior_mean = [f.m[1] for f in f2_out]
+    plot!(overall_plot[2], x_true, f2_posterior_mean, color = :green, linealpha = 1)
+    f3_posterior_mean = [f.m[1] for f in f3_out]
+    plot!(overall_plot[3], x_true, f3_posterior_mean, color = :green, linealpha = 1)
+
+    display(overall_plot)
+
+    function compute_mser(out_true, out_predict)
+        return mean((out_true - out_predict) .^ 2)
+    end
+
+    mser1 = compute_mser(y_true[1], f1_posterior_mean)
+    mser2 = compute_mser(y_true[2], f2_posterior_mean)
+    mser3 = compute_mser(y_true[3], f3_posterior_mean)
+
+    println("MSER 1: $(mser1)")
+    println("MSER 2: $(mser2)")
+    println("MSER 3: $(mser3)")
+end
+
+run_temporal_gp_inference()
