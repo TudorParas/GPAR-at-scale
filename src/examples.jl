@@ -114,8 +114,8 @@ function run_temporal_gp_inference()
         kernel_structure = Matern52(),
         debug = true,
     )
-    lgssm2, f2_out = get_sde_predictions(x, y_obs[2], x_true)
-    lgssm3, f3_out = get_sde_predictions(x, y_obs[3], x_true)
+    lgssm2, f2_out = get_sde_predictions(x, y_obs[2], x_true; debug=true)
+    lgssm3, f3_out = get_sde_predictions(x, y_obs[3], x_true; debug=true)
     # Plotting
     gr();
     overall_plot = plot(layout = (3, 1), legend = false);
@@ -145,7 +145,7 @@ function run_temporal_gp_inference()
     # Plot posterior mean of the IGP results
     plot_gp_result(overall_plot[1], f1_out; ylimits=(-5, 3), standard_devs=5)
     plot_gp_result(overall_plot[2], f2_out; standard_devs=5)
-    plot_gp_result(overall_plot[3], f3_out; ylimits=(0, 50))
+    plot_gp_result(overall_plot[3], f3_out; ylimits=(0, 50), standard_devs=5)
 
     display(overall_plot)
 

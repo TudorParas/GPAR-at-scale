@@ -33,7 +33,7 @@ function create_lgssm(
     # Transform the gp into an LTISDE
     gp_sde = to_sde(gp, sde_storage)
     if isnothing(noise_vector)
-        lgssm = gp_sde(latent_locations, noise_sigma)
+        lgssm = gp_sde(latent_locations, noise_sigma^2)
         return lgssm
     else
         lgssm = gp_sde(latent_locations, noise_vector)
