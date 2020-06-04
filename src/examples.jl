@@ -107,15 +107,15 @@ end
 function run_temporal_gp_inference()
     x, y_obs, x_true, y_true = generate_big_dataset()
 
-    _, f1_out = get_sde_predictions(
+    lgssm1, f1_out = get_sde_predictions(
         x,
         y_obs[1],
         x_true;
         kernel_structure = Matern52(),
         debug = true,
     )
-    _, f2_out = get_sde_predictions(x, y_obs[2], x_true)
-    _, f3_out = get_sde_predictions(x, y_obs[3], x_true)
+    lgssm2, f2_out = get_sde_predictions(x, y_obs[2], x_true)
+    lgssm3, f3_out = get_sde_predictions(x, y_obs[3], x_true)
     # Plotting
     gr();
     overall_plot = plot(layout = (3, 1), legend = false);
@@ -126,28 +126,30 @@ function run_temporal_gp_inference()
     # scatter!(overall_plot[3], x, y_obs[3], color=:black, alpha=0.1)
 
     plot!(overall_plot, x_true, y_true, color = :orange, label = "True")
+    function plot_gp_result(plot_ref, out; ylimits=nothing, standard_devs=3)
+        posterior_mean = [f.m[1] for f in out]
+        std = [f.P[1] for f in out]
+        # Plot mean
+        plot!(plot_ref, x_true, posterior_mean, color = :green, linealpha = 1)
+        # Plot error bars
+        plot!(plot_ref, x_true, [posterior_mean posterior_mean];
+        linewidth=0.0,
+        linecolor=:green,
+        fillrange=[posterior_mean .- standard_devs .* std, posterior_mean .+ standard_devs * std],
+        fillalpha=0.3,
+        fillcolor=:green,
+        ylims = ylimits
+        );
+    end
 
     # Plot posterior mean of the IGP results
-    f1_posterior_mean = [f.m[1] for f in f1_out]
-    plot!(overall_plot[1], x_true, f1_posterior_mean, color = :green, linealpha = 1)
-    f2_posterior_mean = [f.m[1] for f in f2_out]
-    plot!(overall_plot[2], x_true, f2_posterior_mean, color = :green, linealpha = 1)
-    f3_posterior_mean = [f.m[1] for f in f3_out]
-    plot!(overall_plot[3], x_true, f3_posterior_mean, color = :green, linealpha = 1)
+    plot_gp_result(overall_plot[1], f1_out; ylimits=(-5, 3), standard_devs=5)
+    plot_gp_result(overall_plot[2], f2_out; standard_devs=5)
+    plot_gp_result(overall_plot[3], f3_out; ylimits=(0, 50))
 
     display(overall_plot)
 
-    function compute_mser(out_true, out_predict)
-        return mean((out_true - out_predict) .^ 2)
-    end
-
-    mser1 = compute_mser(y_true[1], f1_posterior_mean)
-    mser2 = compute_mser(y_true[2], f2_posterior_mean)
-    mser3 = compute_mser(y_true[3], f3_posterior_mean)
-
-    println("MSER 1: $(mser1)")
-    println("MSER 2: $(mser2)")
-    println("MSER 3: $(mser3)")
+    return lgssm1, lgssm2, lgssm3, f1_out
 end
 
-run_temporal_gp_inference()
+l1, l2, l3, g = run_temporal_gp_inference()
