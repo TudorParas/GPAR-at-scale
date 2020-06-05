@@ -42,7 +42,7 @@ end
 function nuke(x, nr_nuked_intervals, nuked_per_interval)
     # Remove two intervals of data
     if nr_nuked_intervals == 0
-        return x
+        return x, 0
     end
     kept_elements = length(x) ÷ (nr_nuked_intervals + 1)
     accumulator = [x[1:kept_elements]]

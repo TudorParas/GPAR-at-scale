@@ -145,7 +145,7 @@ function run_temporal_gp_inference()
     # Plot posterior mean of the IGP results
     plot_gp_result(overall_plot[1], f1_out; ylimits=(-5, 3), standard_devs=5)
     plot_gp_result(overall_plot[2], f2_out; standard_devs=5)
-    plot_gp_result(overall_plot[3], f3_out; ylimits=(0, 50), standard_devs=5)
+    plot_gp_result(overall_plot[3], f3_out; ylimits=(0, 55), standard_devs=5)
 
     display(overall_plot)
 
