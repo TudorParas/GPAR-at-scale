@@ -14,7 +14,8 @@ function _generate_toy_data(
     f3;
     observation_noise = 0.05,
     extended_true_period = 0,
-    nuke_interval=0  # Number of elements to remove from the middle of the data
+    nr_nuked_intervals=0,
+    nuked_per_interval=0  # Number of elements to remove from the middle of the data
 )
     # Generate True function
     stop = STEP_SIZE * data_samples
@@ -29,27 +30,30 @@ function _generate_toy_data(
     # Add the noise to the observations
     # TODO: make noise scale with y
     x = range(START, stop, length = data_samples)
-    x = nuke(x, nuke_interval)
-    y1 = f1(x) + rand(normal_noise, data_samples - nuke_interval)
-    y2 = f2(x, y1) + rand(normal_noise, data_samples - nuke_interval)
-    y3 = f3(x, y1, y2) + rand(normal_noise, data_samples - nuke_interval)
+    x, removed_elms = nuke(x, nr_nuked_intervals, nuked_per_interval)
+    y1 = f1(x) + rand(normal_noise, data_samples - removed_elms)
+    y2 = f2(x, y1) + rand(normal_noise, data_samples - removed_elms)
+    y3 = f3(x, y1, y2) + rand(normal_noise, data_samples - removed_elms)
     y_obs = [y1, y2, y3]
 
     return x, y_obs, x_true, y_true
 end
 
-function nuke(x, nuke_interval)
+function nuke(x, nr_nuked_intervals, nuked_per_interval)
     # Remove two intervals of data
-    one_third = length(x) ÷ 3
-    two_thirds = 2 * one_third
-    removed_elms = nuke_interval ÷ 2
-    # Remove nuke_interval elms from the middle
-    x = vcat(
-        x[1:one_third],
-        x[one_third + 1 + removed_elms: two_thirds],
-        x[two_thirds + 1 + removed_elms: length(x)]
-        )
-    return x
+    if nr_nuked_intervals == 0
+        return x
+    end
+    kept_elements = length(x) ÷ (nr_nuked_intervals + 1)
+    accumulator = [x[1:kept_elements]]
+    for i in 1:nr_nuked_intervals
+        append!(accumulator,
+            [x[i * kept_elements + 1 + nuked_per_interval: (i + 1)*kept_elements]]
+            )
+    end
+    nuked_x = vcat(accumulator...)
+    removed_elms = length(x) - length(nuked_x)
+    return nuked_x, removed_elms
 end
 
 SMALL_DATA_SAMPLES = 30
@@ -78,7 +82,9 @@ f3_big = ((x, y1, y2) -> y2 .* (y1 .^ 2) + 0.1 .* x)
 
 observation_noise_big = 0.8
 extended_true_period_big = 50  # plot the true data for up to 50 datapoints after
-nuke_interval_big = 600 # remove 600 data points. spanning a rangee of 20
+# Removing subsets of data
+nr_nuked_intervals_big = 5
+nuked_per_interval_big = 300
 generate_big_dataset() = _generate_toy_data(
     BIG_DATA_SAMPLES,
     BIG_TRUE_SAMPLES,
@@ -87,5 +93,6 @@ generate_big_dataset() = _generate_toy_data(
     f3_big,
     observation_noise=observation_noise_big,
     extended_true_period=extended_true_period_big,
-    nuke_interval=nuke_interval_big
+    nr_nuked_intervals=nr_nuked_intervals_big,
+    nuked_per_interval=nuked_per_interval_big
 )
