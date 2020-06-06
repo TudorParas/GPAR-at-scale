@@ -2,14 +2,13 @@
 Script in which I'll store examples
 """
 
+using GPARatScale
+using Stheno
+
 using Plots
 using Suppressor
 
-include("data\\toy_data.jl")
-include("optimized.jl")
-include("temporal_gp_inference.jl")
-
-function run_optimized()
+function plot_optimized_example()
     SAMPLES = 1  # samples we take for the GP representation
 
     x, y_obs, x_true, y_true = generate_small_dataset()
@@ -104,7 +103,7 @@ function run_optimized()
 end
 
 
-function run_temporal_gp_inference()
+function plot_temporal_gp_inference_example()
     x, y_obs, x_true, y_true = generate_big_dataset()
 
     lgssm1, f1_out = get_sde_predictions(
@@ -152,4 +151,5 @@ function run_temporal_gp_inference()
     return lgssm1, lgssm2, lgssm3, f1_out
 end
 
-l1, l2, l3, g = run_temporal_gp_inference()
+# plot_optimized_example()
+# plot_temporal_gp_inference_example()

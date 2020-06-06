@@ -5,8 +5,7 @@ using Optim
 using Zygote: gradient
 using Random
 
-include("data\\toy_data.jl")
-include("util.jl")
+using GPARatScale
 
 # Create function that computes dtc objective that takes in a Stheno GP, and the
 # input locations, and y1 locations

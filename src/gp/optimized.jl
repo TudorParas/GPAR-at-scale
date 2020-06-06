@@ -2,10 +2,10 @@ using Stheno, Random
 using Optim
 using Zygote: gradient
 
-using IJulia
-IJulia.installkernel("Julia nodeps", "--depwarn=no") # supress warnings
+using GPARatScale
 
-include("util.jl")
+export create_optim_gp_post, create_optim_gpar_post
+
 """
 Script including utilities to optimize the hyperparameters of your GP.
 """
@@ -39,7 +39,8 @@ function create_optim_gp_post(
         return -logpdf(f(input_locations, noise_sigma^2), outputs)
     end
     # Optimize the parameters
-    params = randn(3)
+    # params = randn(3) * sqrt(3)
+    params = [3, -0.3, 0.5]
     results = Optim.optimize(nlml, params, NelderMead();)
     opt_l, opt_process_var, opt_noise_sigma = unpack_gp(results.minimizer)
     if debug
@@ -113,7 +114,7 @@ function create_optim_gpar_post(
         return -logpdf(f(input_locations, noise_sigma^2), outputs)
     end
     # Optimize the parameters
-    params = randn(5)
+    params = randn(5) * sqrt(3)
     results = Optim.optimize(nlml, params, NelderMead())
 
     opt_time_l, opt_time_var, opt_out_l, opt_out_var, opt_noise_sigma =

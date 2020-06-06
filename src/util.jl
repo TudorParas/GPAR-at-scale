@@ -1,5 +1,6 @@
 using Stheno
 
+export to_ColVecs, unpack_gp, unpack_gpar, get_time_mask, get_output_mask
 """
 Transform the input space into a ColVecs for using GPAR
 """

@@ -4,8 +4,8 @@ using Optim
 using Zygote: gradient
 using Random
 
-include("data\\toy_data.jl")
-include("util.jl")
+using GPARatScale
+export create_lgssm, get_sde_predictions
 
 """
 Create LGSSM for the latent locations and the given observation noise.
