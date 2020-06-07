@@ -1,4 +1,4 @@
-using Stheno, Random
+using Stheno
 using Optim
 using Zygote: gradient
 
@@ -28,26 +28,36 @@ function create_optim_gp_post(
     input_locations,
     outputs;
     kernel_structure::Kernel = EQ(),
+    # Initial log vals for hyperparameters which will be optimized
+    i_log_l=nothing, i_log_process_var=nothing, i_log_noise_sigma=nothing,
     debug::Bool = false,
 )
     # Helper function used to compute negative log marignal lik for params
     function nlml(params)
         l, process_var, noise_sigma = unpack_gp(params)
-        curr_kernel = Stheno.kernel(kernel_structure; l = l, s = process_var^2)
+        curr_kernel = process_var^2 * stretch(kernel_structure, 1/l)
+        # curr_kernel = Stheno.kernel(kernel_structure; l = l, s = process_var^2)
         f = GP(curr_kernel, GPC())
+        result = -logpdf(f(input_locations, noise_sigma^2), outputs)
 
-        return -logpdf(f(input_locations, noise_sigma^2), outputs)
+        return result
     end
     # Optimize the parameters
-    # params = randn(3) * sqrt(3)
-    params = [3, -0.3, 0.5]
-    results = Optim.optimize(nlml, params, NelderMead();)
+    params = parse_initial_gp_params(i_log_l, i_log_process_var, i_log_noise_sigma)
+
+    if debug
+        i_l, i_var, i_noise = unpack_gp(params)
+        println("Generating GP with initial parameters:")
+        println("\tl=$(i_l); var=$(i_var); noise=$(i_noise)")
+    end
+    results = Optim.optimize(nlml, x->gradient(nlml, x)[1], params, BFGS(); inplace=false)
     opt_l, opt_process_var, opt_noise_sigma = unpack_gp(results.minimizer)
     if debug
+        println("Finished optimizing parameters:")
+        println("\tOptimum L: $(opt_l) ")
+        println("\tOptimum noise: $(opt_noise_sigma)")
+        println("\tOptimum Process Variance: $(opt_process_var)")
         println()
-        println("Optimum L: $(opt_l) ")
-        println("Optimum noise: $(opt_noise_sigma)")
-        println("Optimum Process Variance: $(opt_process_var)")
     end
     gp_kernel = kernel(kernel_structure, l = opt_l, s = opt_process_var^2)
     gp = GP(gp_kernel, GPC())
@@ -76,6 +86,9 @@ function create_optim_gpar_post(
     outputs;
     time_kernel::Kernel = EQ(),
     out_kernel::Kernel = EQ(),
+    # Initial log param values which will be put in the optimization
+    i_log_time_l=nothing, i_log_time_var=nothing, i_log_out_l=nothing,
+    i_log_out_var=nothing, i_log_noise_sigma=nothing,
     multi_input::Bool = true,  # False if it is the first gpar kernel
     debug::Bool = false,
 )
@@ -84,6 +97,8 @@ function create_optim_gpar_post(
             input_locations,
             outputs,
             kernel_structure = time_kernel;
+            i_log_l=i_log_time_l, i_log_process_var=i_log_time_var,
+            i_log_noise_sigma=i_log_noise_sigma,
             debug = debug,
         )
     end
@@ -114,18 +129,26 @@ function create_optim_gpar_post(
         return -logpdf(f(input_locations, noise_sigma^2), outputs)
     end
     # Optimize the parameters
-    params = randn(5) * sqrt(3)
+    params = parse_initial_gpar_params(
+        i_log_time_l, i_log_time_var, i_log_out_l,
+        i_log_out_var, i_log_noise_sigma)
+    if debug
+        i_time_l, i_time_var, i_out_l, i_out_var, i_noise_sigma = unpack_gpar(params)
+        println("Generating GPAR with initial parameters:")
+        println("\ti_time_l=$(i_time_l); i_time_var=$(i_time_var); i_out_l=$(i_out_l); i_out_var=$(i_out_var); i_noise_sigma=$(i_noise_sigma)")
+    end
     results = Optim.optimize(nlml, params, NelderMead())
 
     opt_time_l, opt_time_var, opt_out_l, opt_out_var, opt_noise_sigma =
         unpack_gpar(results.minimizer)
     if debug
+        println("Finished optimizing parameters:")
+        println("\tOptimum time L: $(opt_time_l) ")
+        println("\tOptimum time var: $(opt_time_var)")
+        println("\tOptimum outputs l: $(opt_out_l)")
+        println("\tOptimum outputs l: $(opt_out_var)")
+        println("\tOptimum Noise std: $(opt_noise_sigma)")
         println()
-        println("Optimum time L: $(opt_time_l) ")
-        println("Optimum time var: $(opt_time_var)")
-        println("Optimum outputs l: $(opt_out_l)")
-        println("Optimum outputs l: $(opt_out_var)")
-        println("Optimum Noise std: $(opt_noise_sigma)")
     end
     gpar_kernel =
         create_gpar_kernel(opt_time_l, opt_time_var, opt_out_l, opt_out_var)

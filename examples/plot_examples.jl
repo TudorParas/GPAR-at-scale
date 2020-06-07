@@ -12,14 +12,20 @@ function plot_optimized_example()
     SAMPLES = 1  # samples we take for the GP representation
 
     x, y_obs, x_true, y_true = generate_small_dataset()
-    f1_gp_post = create_optim_gp_post(x, y_obs[1], kernel_structure=Matern52())
+    println("Creating f1 GP")
+    f1_gp_post = create_optim_gp_post(x, y_obs[1], kernel_structure=Matern52();
+    i_log_l=3, debug=true)
     f2_gp_post = create_optim_gp_post(x, y_obs[2], kernel_structure=Matern52())
     f3_gp_post = create_optim_gp_post(x, y_obs[3], kernel_structure=EQ())
 
+    println("Creating f1 GPAR")
     f1_gpar_post = create_optim_gpar_post(
         x,
         y_obs[1];
-        time_kernel = EQ(),
+        time_kernel = Matern52(),
+        i_log_time_l=-3,
+        i_log_time_var=0.2,
+        i_log_noise_sigma=-10,
         multi_input = false,
         debug = true,
     )
@@ -29,7 +35,7 @@ function plot_optimized_example()
         time_kernel = Matern52(),
         out_kernel = EQ(),
         multi_input = true,
-        debug = true,
+        debug = false,
     )
     f3_gpar_post = create_optim_gpar_post(
         [x, y_obs[1], y_obs[2]],
@@ -37,7 +43,7 @@ function plot_optimized_example()
         time_kernel = Matern52(),
         out_kernel = Matern52(),
         multi_input = true,
-        debug = true,
+        debug = false,
     )
 
 
@@ -151,5 +157,5 @@ function plot_temporal_gp_inference_example()
     return lgssm1, lgssm2, lgssm3, f1_out
 end
 
-# plot_optimized_example()
+plot_optimized_example()
 # plot_temporal_gp_inference_example()

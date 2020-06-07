@@ -31,3 +31,6 @@ dev/
 
 # The examples folder for the dependencies
 dep_examples/
+
+# Datasets
+examples/datasets

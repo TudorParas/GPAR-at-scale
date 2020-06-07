@@ -1,6 +1,13 @@
 using Stheno
+using Random
 
-export to_ColVecs, unpack_gp, unpack_gpar, get_time_mask, get_output_mask
+export to_ColVecs,
+    unpack_gp,
+    unpack_gpar,
+    get_time_mask,
+    get_output_mask,
+    parse_initial_gp_params,
+    parse_initial_gpar_params
 """
 Transform the input space into a ColVecs for using GPAR
 """
@@ -82,7 +89,7 @@ out_true_K = pairwise(vanilla_kernel, xs_no_first, ys_no_first)
 Return mask used to only select time features from inputs.
 """
 function get_time_mask(input_length)
-    time_mask  = zeros(input_length)
+    time_mask = zeros(input_length)
     time_mask[1] = 1  # only select the first (time) element
     return time_mask
 end
@@ -92,11 +99,60 @@ Return mask used to only select previous output features from inputs.
 """
 function get_output_mask(input_length)
     if input_length <= 1
-        throw(DomainError(input_length, "Input length must be integer greater than 1"))
+        throw(DomainError(
+            input_length,
+            "Input length must be integer greater than 1",
+        ))
     end
     out_mask = zeros(input_length - 1, input_length)
-    for row in 1:(input_length - 1)
-        out_mask[row, row + 1] = 1  # select this feature
+    for row = 1:(input_length-1)
+        out_mask[row, row+1] = 1  # select this feature
     end
     return out_mask
+end
+
+"""
+Helper function for doing parameter checking and creation.
+"""
+function _parse_param(i_log_param)
+    if isnothing(i_log_param)
+        i_log_param = rand(1)[1]
+    end
+
+    return i_log_param
+end
+
+"""
+Functionality that takes in initial parameters (when defined), created them when
+not defined (by sampling a normal), and accumulates them in a params array.
+Used for GPs (3 params).
+"""
+function parse_initial_gp_params(i_log_l, i_log_process_var, i_log_noise_sigma)
+    return [
+        _parse_param(i_log_l),
+        _parse_param(i_log_process_var),
+        _parse_param(i_log_noise_sigma),
+    ]
+end
+
+"""
+Functionality that takes in initial parameters (when defined), creates them when
+not defined (by sampling a normal), and accumulates them in a params array.
+Used for GPARs (5 params).
+"""
+function parse_initial_gpar_params(
+    i_log_time_l,
+    i_log_time_var,
+    i_log_out_l,
+    i_log_out_var,
+    i_log_noise_sigma,
+)
+
+    return [
+        _parse_param(i_log_time_l),
+        _parse_param(i_log_time_var),
+        _parse_param(i_log_out_l),
+        _parse_param(i_log_out_var),
+        _parse_param(i_log_noise_sigma),
+    ]
 end
