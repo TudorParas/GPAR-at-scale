@@ -55,8 +55,8 @@ function create_optim_gp_post(
     if debug
         println("Finished optimizing parameters:")
         println("\tOptimum L: $(opt_l) ")
-        println("\tOptimum noise: $(opt_noise_sigma)")
         println("\tOptimum Process Variance: $(opt_process_var)")
+        println("\tOptimum noise: $(opt_noise_sigma)")
         println()
     end
     gp_kernel = kernel(kernel_structure, l = opt_l, s = opt_process_var^2)
@@ -146,7 +146,7 @@ function create_optim_gpar_post(
         println("\tOptimum time L: $(opt_time_l) ")
         println("\tOptimum time var: $(opt_time_var)")
         println("\tOptimum outputs l: $(opt_out_l)")
-        println("\tOptimum outputs l: $(opt_out_var)")
+        println("\tOptimum outputs var: $(opt_out_var)")
         println("\tOptimum Noise std: $(opt_noise_sigma)")
         println()
     end
