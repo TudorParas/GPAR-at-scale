@@ -3,6 +3,7 @@ using TemporalGPs: to_sde, smooth, SArrayStorage, decorrelate
 using Plots
 using Optim
 using Zygote: gradient
+using Stheno
 using Random
 
 using GPARatScale
@@ -69,8 +70,9 @@ f_prior = GP(kern, GPC())
 u_prior = GP(kern, GPC())
 
 # Compute Cfu by using finiteGP. This was to test the pairwise function.
-f = f_prior(time_loc, 0.1)
-u = f_prior(pseudo_time_loc, 0.1)
+NOISE_SIGMA = 0.05
+f = f_prior(time_loc, NOISE_SIGMA)
+u = f_prior(pseudo_time_loc, NOISE_SIGMA)
 Cfu_naive = cov(f, u)
 
 
@@ -90,13 +92,14 @@ storage = SArrayStorage(Float64)
 f_sde = to_sde(f_prior, storage)
 u_sde = to_sde(u_prior, storage)
 # Turn the LTISDE into LGSSM by indexing
-NOISE_SIGMA = 0.05
+
 # TODO: This is where extending D > 1 failed. SDE doesn't support multi-dim inp
 f_lgssm = f_sde(time_loc, NOISE_SIGMA)
 u_lgssm = u_sde(pseudo_time_loc, NOISE_SIGMA)
 
 # Here we'll naively compute alpha and Beta
-L_naive = cholesky(f.Σy).U'
+Σy = cov(f)
+L_naive = cholesky(Σy).U'
 alpha_naive = L_naive \ outputs
 beta_naive = L_naive \ Cfu_naive
 
