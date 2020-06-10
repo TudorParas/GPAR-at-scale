@@ -29,21 +29,21 @@ data_range = 1:156
 # Train IGPs
 fz_gp_post = create_optim_gp_post(
     train_time[data_range],
-    [train_fz[data_range]...],
+    convert(Array{Float32}, train_fz[data_range]),
     kernel_structure = Matern52();
     # i_log_l=-2.0, i_log_process_var=2.0, i_log_noise_sigma=-2.0,
     debug = true,
 )
 f1_gp_post = create_optim_gp_post(
     train_time[data_range],
-    [train_f1[data_range]...],
+    convert(Array{Float32}, train_f1[data_range]),
     kernel_structure = Matern52();
     # i_log_l=-2.0, i_log_process_var=2.0, i_log_noise_sigma=-2.0,
     debug = true,
 )
 f2_gp_post = create_optim_gp_post(
     train_time[data_range],
-    [train_f2[data_range]...],
+    convert(Array{Float32}, train_f2[data_range]),
     kernel_structure = Matern12();
     i_log_l=-2.0, i_log_process_var=1.0, i_log_noise_sigma=-3.0,
     debug = true,
@@ -55,7 +55,7 @@ fz_gpar_post = create_optim_gpar_post(
         train_time[data_range], train_f3[data_range], train_f4[data_range],
         train_f5[data_range], train_f6[data_range]
     ],
-    [train_fz[data_range]...];
+    convert(Array{Float32}, train_fz[data_range]);
     time_kernel = Matern52(),
     out_kernel = Matern52(),
     i_log_time_l=-3.0, i_log_time_var=1.0, i_log_out_l=6.0,
@@ -68,7 +68,7 @@ f1_gpar_post = create_optim_gpar_post(
         train_time[data_range], train_f3[data_range], train_f4[data_range],
         train_f5[data_range], train_f6[data_range], train_fz[data_range]
     ],
-    [train_f1[data_range]...];
+    convert(Array{Float32}, train_f1[data_range]);
     time_kernel = Matern52(),
     out_kernel = Matern52(),
     # i_log_time_l=-3.0, i_log_time_var=1.0, i_log_out_l=6.0,
@@ -82,7 +82,7 @@ f2_gpar_post = create_optim_gpar_post(
         train_f5[data_range], train_f6[data_range], train_fz[data_range],
         train_f1[data_range]
     ],
-    [train_f2[data_range]...];
+    convert(Array{Float32}, train_f2[data_range]);
     time_kernel = Matern52(),
     out_kernel = Matern52(),
     # i_log_time_l=-3.0, i_log_time_var=1.0, i_log_out_l=6.0,

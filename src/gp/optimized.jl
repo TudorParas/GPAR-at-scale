@@ -38,8 +38,8 @@ function create_optim_gp_post(
         curr_kernel = process_var^2 * stretch(kernel_structure, 1/l)
         # curr_kernel = Stheno.kernel(kernel_structure; l = l, s = process_var^2)
         f = GP(curr_kernel, GPC())
-        result = -logpdf(f(input_locations, noise_sigma^2), outputs)
 
+        result = -logpdf(f(input_locations, noise_sigma^2), outputs)
         return result
     end
     # Optimize the parameters
@@ -50,7 +50,7 @@ function create_optim_gp_post(
         println("Generating GP with initial parameters:")
         println("\tl=$(i_l); var=$(i_var); noise=$(i_noise)")
     end
-    results = Optim.optimize(nlml, x->gradient(nlml, x)[1], params, BFGS(); inplace=false)
+    results = Optim.optimize(nlml, params, NelderMead())
     opt_l, opt_process_var, opt_noise_sigma = unpack_gp(results.minimizer)
     if debug
         println("Finished optimizing parameters:")
@@ -103,8 +103,8 @@ function create_optim_gpar_post(
         )
     end
     # Otherwise create an optimised GPAR
-    input_length = length(input_locations)
     input_locations = to_ColVecs(input_locations)  # transform into ColVecs
+    input_length = length(input_locations[1])
     # Helper function that strings together the GPAR kernel
     function create_gpar_kernel(time_l, time_var, out_l, out_var)
         time_mask = get_time_mask(input_length)
@@ -126,7 +126,9 @@ function create_optim_gpar_post(
         kernel = create_gpar_kernel(time_l, time_var, out_l, out_var)
         f = GP(kernel, GPC())
 
-        return -logpdf(f(input_locations, noise_sigma^2), outputs)
+        result = -logpdf(f(input_locations, noise_sigma^2), outputs)
+        return result
+        end
     end
     # Optimize the parameters
     params = parse_initial_gpar_params(

@@ -1,5 +1,6 @@
 using Stheno
 using Random
+using DataFrames
 
 export to_ColVecs,
     unpack_gp,
@@ -11,12 +12,21 @@ export to_ColVecs,
 """
 Transform the input space into a ColVecs for using GPAR
 """
-function to_ColVecs(inputs)
+function to_ColVecs(inputs::Array)
     # Inputs is an array of 1-D vectors
     concatted = hcat(inputs...)
     # Transpose so that we work with columns
     tranposed = transpose(concatted)
     return ColVecs(tranposed)
+end
+
+function to_ColVecs(inputs::DataFrame)
+    matrix = Matrix(inputs)
+    return ColVecs(matrix')
+end
+
+function to_ColVecs(inputs::ColVecs)
+    return inputs # no need to do anyting
 end
 
 """
