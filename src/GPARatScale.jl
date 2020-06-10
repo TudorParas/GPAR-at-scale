@@ -7,6 +7,8 @@ module GPARatScale
     include(joinpath("gp", "optimized.jl"))
     # Temporal GP
     include(joinpath("gp", "temporal_gp_inference.jl"))
+    # DTC
+    include(joinpath("gp", "dtc.jl"))
     # Util
     include("util.jl")
 end
