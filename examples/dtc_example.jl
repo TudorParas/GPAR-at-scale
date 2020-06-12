@@ -2,7 +2,10 @@ using GPARatScale
 using Stheno
 using LinearAlgebra
 
-function test_dtc()
+"""
+Compare the dtc computed by our function against the Stheno DTC
+"""
+function compare_dtc_with_Stheno_dtc()
     # Example function, used for comparisson purposes
     function _compute_intermediates(f, y, u, noise_matrix)
         chol_Σy = cholesky(noise_matrix) # passed in the noise matrix
@@ -60,4 +63,103 @@ function test_dtc()
     println("A difference $(A_diff)")
 end
 
-test_dtc()
+
+function compare_optimum_params(;nr_pseudo_points=400, use_same_points=false)
+
+    # Get dataset
+    x, y_obs, x_true, y_true = generate_small_dataset()
+    # Expand y_obs and generate the pseudo points
+    y1 = y_obs[1]
+    y2 = y_obs[2]
+    y3 = y_obs[3]
+
+    if use_same_points
+        println("Using pseudopoints same as input points")
+        pseudo_f2 = [y1]
+        pseudo_f3 = [y1, y2]
+    else
+        println("Generating $(nr_pseudo_points) pseudo-points on grid.")
+        pseudo_f2 = [range(minimum(y1), stop=maximum(y1), length=nr_pseudo_points)]
+        # Creating pseudo inputs in this case is harder since we need them on a grid
+        nr_pseudo_points_pd = convert(Integer, ceil(sqrt(nr_pseudo_points)))  # pseudo points per dimension
+
+        dim1 = range(minimum(y1), stop=maximum(y1), length=nr_pseudo_points_pd)
+        dim2 = range(minimum(y2), stop=maximum(y2), length=nr_pseudo_points_pd)
+        # Collect them in a grid and transform into ColVecs
+        pseudo_f3 = vec([collect(i) for i in Iterators.product(dim1, dim2)])
+        pseudo_f3 = ColVecs(hcat(pseudo_f3...))
+    end
+    # Create initial parameters
+    out_kernel = Matern52()
+    time_kernel = Matern52()
+    i_log_time_l = 1.0
+    i_log_time_var = 1.5
+    i_log_out_l = 1.0
+    i_log_out_var = 1.0
+    i_log_noise_sigma=-3.0
+
+    println("Optimizing GPAR parameters for f2")
+    f2_gpar, opt_params_f2 = create_optim_gpar(
+        [x, y1],
+        y2;
+        time_kernel = time_kernel,
+        out_kernel = out_kernel,
+        multi_input = true,
+        debug = true,
+        i_log_time_l=i_log_time_l, i_log_time_var=i_log_time_var, i_log_out_l=i_log_out_l,
+        i_log_out_var=i_log_out_var, i_log_noise_sigma=i_log_noise_sigma
+    )
+
+    pseudo_y1 = range(minimum(y1), stop=maximum(y1), length=nr_pseudo_points)
+    println("Optimizing Scaled GPAR for f2")
+    scaled_opt_params_f2 = get_optim_scaled_gpar_params(
+        [y1],
+        pseudo_f2,
+        x,
+        y2;
+        out_kernel = out_kernel,
+        time_kernel = time_kernel,
+        debug = true,
+        i_log_time_l=i_log_time_l, i_log_time_var=i_log_time_var, i_log_out_l=i_log_out_l,
+        i_log_out_var=i_log_out_var, i_log_noise_sigma=i_log_noise_sigma
+        )
+
+    println("Optimizing GPAR parameters for f3")
+    f3_gpar, opt_params_f3 = create_optim_gpar(
+        [x, y1, y2],
+        y3;
+        time_kernel = time_kernel,
+        out_kernel = out_kernel,
+        multi_input = true,
+        debug = true,
+        i_log_time_l=i_log_time_l, i_log_time_var=i_log_time_var, i_log_out_l=i_log_out_l,
+        i_log_out_var=i_log_out_var, i_log_noise_sigma=i_log_noise_sigma,
+    )
+
+    # println("Using the pseudo-points:")
+    # println(pseudo_loc)
+    println("Optimizing Scaled GPAR for f3")
+    scaled_opt_params_f3 = get_optim_scaled_gpar_params(
+        [y1, y2],
+        pseudo_f3,
+        x,
+        y3;
+        out_kernel = out_kernel,
+        time_kernel = time_kernel,
+        debug = true,
+        i_log_time_l=i_log_time_l, i_log_time_var=i_log_time_var, i_log_out_l=i_log_out_l,
+        i_log_out_var=i_log_out_var, i_log_noise_sigma=i_log_noise_sigma
+        )
+
+    # Round everthing to 3 digits
+    opt_params_f2 = [round(i, digits=3) for i in opt_params_f2]
+    scaled_opt_params_f2 = [round(i, digits=3) for i in scaled_opt_params_f2]
+    opt_params_f3 = [round(i, digits=3) for i in opt_params_f3]
+    scaled_opt_params_f3 = [round(i, digits=3) for i in scaled_opt_params_f3]
+
+    println("For f2 got \n\tOpt params: $(opt_params_f2)\n Scaled opt params: $(scaled_opt_params_f2)")
+    println("For f3 got \n\tOpt params: $(opt_params_f3)\n Scaled opt params: $(scaled_opt_params_f3)")
+
+end
+# compare_dtc_with_Stheno_dtc()
+compare_optimum_params(nr_pseudo_points=400, use_same_points=false)
