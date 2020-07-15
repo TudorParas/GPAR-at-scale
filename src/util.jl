@@ -17,7 +17,7 @@ function to_ColVecs(inputs::Array)
     # Inputs is an array of 1-D vectors
     concatted = hcat(inputs...)
     # Transpose so that we work with columns
-    tranposed = transpose(concatted)
+    tranposed = collect(transpose(concatted))
     return ColVecs(tranposed)
 end
 
