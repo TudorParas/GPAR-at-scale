@@ -74,7 +74,7 @@ generate_small_dataset() = _generate_toy_data(
 )
 
 BIG_DATA_SAMPLES = 10000
-BIG_TRUE_SAMPLES = 1000000 # discretised points used to model true function
+BIG_TRUE_SAMPLES = 100000 # discretised points used to model true function
 
 f1_big = (x -> 3 .+ -sin.(1 / 10 * pi .* (x .+ 1)) - x .^ 0.3)
 f2_big = ((x, y1) -> cos.(y1) .^ 2 + sin.(pi / 20 .* x))

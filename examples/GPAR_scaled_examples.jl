@@ -125,10 +125,11 @@ function big_synthetic_dataset()
         i_log_noise_sigma=-10,
         debug = true,
     )
-    y2_out_temporal = [f.m[1] for f in y2_out_temporal]
+    y2_out_temporal_mean = [f.m[1] for f in y2_out_temporal]
+    y2_out_temporal_std = [f.P[1] for f in y2_out_temporal]
 
     println("Generating Y2 scaled GPAR")
-    y2_out = get_gpar_scaled_predictions(
+    y2_out, y2_std = get_gpar_scaled_predictions(
         [y1],
         [pseudo_y1],
         time_loc,
@@ -157,10 +158,11 @@ function big_synthetic_dataset()
         i_log_noise_sigma=-10,
         debug = true,
     )
-    y3_out_temporal = [f.m[1] for f in y3_out_temporal]
+    y3_out_temporal_mean = [f.m[1] for f in y3_out_temporal]
+    y3_out_temporal_std = [f.P[1] for f in y3_out_temporal]
 
     println("Generating Y3 scaled GPAR")
-    y3_out = get_gpar_scaled_predictions(
+    y3_out, y3_std = get_gpar_scaled_predictions(
         [y1, y2],
         pseudo_y3,
         time_loc,
@@ -176,20 +178,38 @@ function big_synthetic_dataset()
     gr()
     overall_plot = plot(layout = (3, 1), legend = false);
 
-    scatter!(overall_plot[1], time_loc, y1,color = :black, alpha=0.05)
+    function plot_result(plot_ref, posterior_mean, std; ylimits=nothing, standard_devs=3, color=:green)
+        # Plot mean
+        plot!(plot_ref, x_true, posterior_mean, color = color, linealpha = 1)
+        # Plot error bars
+        plot!(plot_ref, x_true, [posterior_mean posterior_mean];
+        linewidth=0.0,
+        linecolor=:green,
+        fillrange=[posterior_mean .- standard_devs .* std, posterior_mean .+ standard_devs * std],
+        fillalpha=0.3,
+        fillcolor=color,
+        ylims = ylimits
+        );
+    end
+
+    # scatter!(overall_plot[1], time_loc, y1,color = :black, alpha=0.05)
     plot!(overall_plot[1], test_time_loc, test_y1, color = :orange)
     plot!(overall_plot[1], test_time_loc, y1_out, color = :green)
     plot!(overall_plot[1], test_time_loc, y1_out, color= :blue)
 
-    scatter!(overall_plot[2], time_loc, y2,color = :black, alpha=0.05)
+    # scatter!(overall_plot[2], time_loc, y2,color = :black, alpha=0.05)
     plot!(overall_plot[2], test_time_loc, test_y2, color = :orange)
-    plot!(overall_plot[2], test_time_loc, y2_out_temporal, color = :green)
-    plot!(overall_plot[2], test_time_loc, y2_out, color= :blue)
+    # plot_result(overall_plot[2], y2_out_temporal_mean, y2_out_temporal_std, color = :green)
+    plot_result(overall_plot[2], y2_out, y2_std, color = :blue)
+    # plot!(overall_plot[2], test_time_loc, y2_out_temporal, color = :green)
+    # plot!(overall_plot[2], test_time_loc, y2_out, color= :blue)
 
-    scatter!(overall_plot[3], time_loc, y3, color = :black, alpha=0.05)
+    # scatter!(overall_plot[3], time_loc, y3, color = :black, alpha=0.05)
     plot!(overall_plot[3], test_time_loc, test_y3, color = :orange)
-    plot!(overall_plot[3], test_time_loc, y3_out_temporal, color = :green)
-    plot!(overall_plot[3], test_time_loc, y3_out, color= :blue)
+    # plot_result(overall_plot[3], y3_out_temporal_mean, y3_out_temporal_std, color = :green)
+    plot_result(overall_plot[3], y3_out, y3_std, color = :blue)
+    # plot!(overall_plot[3], test_time_loc, y3_out_temporal, color = :green)
+    # plot!(overall_plot[3], test_time_loc, y3_out, color= :blue)
 
     display(overall_plot)
 

@@ -8,25 +8,14 @@ using Plots
 
 using GPARatScale
 
-function approx_posterior_ref(fx, y, u, noise_matrix)
-    U_y = cholesky(Symmetric(noise_matrix)).U
-    U = cholesky(Symmetric(cov(u))).U
+export get_gpar_scaled_predictions
 
-    B_εf = U' \ (U_y' \ cov(fx, u))'
-
-    b_y = U_y' \ (y - mean(fx))
-
-    D = B_εf * B_εf' + I
-    Λ_ε = cholesky(Symmetric(D))
-
-    m_ε = Λ_ε \ (B_εf * b_y)
-
-    return D, m_ε
-end
 
 """
 Compute scaled GPAR predictions. This is only useful in input domain has at
 least 2 dimensions, one of which is time.
+
+In the case of 1D input (only time), use get_sde_predictions from temporal_gp_inference.jl
 """
 function get_gpar_scaled_predictions(
     # Training information
@@ -39,6 +28,10 @@ function get_gpar_scaled_predictions(
     inference_input_locations;  # Input locations from prev outputs
     out_kernel_structure = Matern52(),  # kernel of the GP used on input points
     time_kernel_structure = Matern52(),  # kernel of the GP used on temporal locations
+    # Initial log param values. Temporal noise and output noise are the same.
+    i_log_time_l=nothing, i_log_time_var=nothing, i_log_out_l=nothing,
+    i_log_out_var=nothing, i_log_noise_sigma=nothing,
+    optimization_time_limit = 1000.0,
     debug::Bool=false,
     storage = SArrayStorage(Float64), # storage used for TemporalGPs
     )
@@ -46,10 +39,26 @@ function get_gpar_scaled_predictions(
     pseudo_input_locations= to_ColVecs(pseudo_input_locations)
     inference_input_locations = to_ColVecs(inference_input_locations)
     # TODO: Optimize hyperparameters using the DTC objective
-    out_kernel = out_kernel_structure
-    time_kernel = time_kernel_structure
-
-    temporal_noise_sigma = 0.05
+    println("Starting optimization")
+    opt_params = get_optim_scaled_gpar_params(
+        input_locations,
+        pseudo_input_locations,
+        time_loc,
+        outputs;
+        out_kernel = Matern52(),
+        time_kernel = Matern52(),
+        # Initial log param values. Temporal noise and output noise are the same.
+        i_log_time_l=i_log_time_l, i_log_time_var=i_log_time_var, i_log_out_l=i_log_out_l,
+        i_log_out_var=i_log_out_var, i_log_noise_sigma=i_log_noise_sigma,
+        optimization_time_limit = optimization_time_limit,
+        debug=debug,
+        storage = SArrayStorage(Float64), # storage used for TemporalGPs
+        )
+    opt_time_l, opt_time_var, opt_out_l, opt_out_var, opt_noise_sigma = opt_params
+    out_kernel = kernel(out_kernel_structure, l=opt_out_l, s=opt_out_var^2)
+    time_kernel = kernel(time_kernel_structure, l=opt_time_l, s=opt_time_var^2)
+    # TODO: look into having different noise values
+    temporal_noise_sigma = opt_noise_sigma
     # Compute q(u) ~ p(u | y).
     q_u, U_u = compute_q_u(
         input_locations,
@@ -99,7 +108,7 @@ function get_gpar_scaled_predictions(
 
     # Function that does monte carlo sampling for computing ∫p(f* | fₓ, y) * q(fₓ)
     function monte_carlo_f_star(iterations)
-        acc = zeros(length(time_loc_star))
+        acc = []
         for _ in 1:iterations
             fx = generate_fx_sample()
             # Subtract fx to focus on fₜ
@@ -110,19 +119,20 @@ function get_gpar_scaled_predictions(
             y_smooth = [f.m[1] for f in y_smooth]
             # Add back fx to get f*
             f_star = fx + y_smooth
-            acc = acc + f_star
+            push!(acc, f_star)
         end
         # Divide by the number of iterations as in Monte Carlo sampling
-        return acc / iterations
+        return mean(acc), std(acc)
 
     end
 
     # TODO: find a way to also return variance.
-    inferred_f_star = monte_carlo_f_star(100)
+    inferred_f_star_mean, inferred_f_star_std = monte_carlo_f_star(100)
     # Only get predictions at the inference locations
-    inferred_outputs = inferred_f_star[reverse_perm][length(time_loc) + 1:length(inferred_f_star)]
-
-    return inferred_outputs
+    inferred_outputs = inferred_f_star_mean[reverse_perm][length(time_loc) + 1:length(inferred_f_star_mean)]
+    inferred_stds = inferred_f_star_std[reverse_perm][length(time_loc) + 1:length(inferred_f_star_std)]
+    
+    return inferred_outputs, inferred_stds
 end
 """
 Compute the approximate posterior multivariate distribution over the
@@ -184,209 +194,6 @@ function compute_q_u(
     # Also return U_u because we need it later
     return q_u, U_u
 end
-
-# Data generation and preprocessing
-x, y_obs, x_true, y_true = generate_small_dataset()
-# Model X=R²; (x, y1) -> y2; i.e  v=(x, y1), y = y2, and z=(pseudo_x, pseudo_y1)
-time_loc = x
-y1 = y_obs[1]
-y2 = y_obs[2]
-y3 = y_obs[3]
-# Generate u, the pseudo-points, by taking every third element
-every_third = range(1; stop = length(x), step = 3)
-pseudo_y1 = y1[every_third]
-# Get the testing data
-test_time_loc = x_true
-test_y1 = y_true[1]
-test_y2 = y_true[2]
-test_y3 = y_true[3]
-
-# Run the code
-
-
-
-y2_out = get_gpar_scaled_predictions(
-    [y1],
-    [pseudo_y1],
-    time_loc,
-    y2,  # outputs
-    # Inference information
-    test_time_loc,  # Time locations at which we do inference
-    [test_y1]
-    )  # Input locations from prev outputs
-
-dim1 = range(minimum(y1), stop=maximum(y1), length=5)
-dim2 = range(minimum(y2_out), stop=maximum(y2_out), length=5)
-pseudo_y3 = vec([collect(i) for i in Iterators.product(dim1, dim2)])
-pseudo_y3 = ColVecs(hcat(pseudo_y3...))
-
-# input_locations = to_ColVecs([y1, y2])
-# pseudo_input_locations= to_ColVecs(pseudo_y3)
-# inference_input_locations = to_ColVecs([test_y1, y2_out])
-#
-# time_loc_concat = vcat(time_loc, test_time_loc)
-# # Make sure that input_loc_concat is also ColVecs
-# input_loc_concat = vcat(input_locations, inference_input_locations)
-# # input_loc_concat = [arr[1] for arr in input_loc_concat]
-# # input_loc_concat = to_ColVecs([input_loc_concat])
-#
-# sorting_perm = sortperm(time_loc_concat)
-# input_loc_star = input_loc_concat[sorting_perm]
-# # Code that generates the fₓ sample; i.e. the GP acting on prev outputs.
-# Cfu_star = pairwise(Matern52(), input_loc_star, pseudo_input_locations)  # Cf*u
-
-# TODO: figure out how multi-dim inputs work
-y3_out = get_gpar_scaled_predictions(
-    [y1, y2],
-    pseudo_y3,
-    time_loc,
-    y3,  # outputs
-    # Inference information
-    test_time_loc,  # Time locations at which we do inference
-    [test_y1, y2_out]
-    )  # Input locations from prev outputs
-
-# Plotting
-gr()
-
-overall_plot = plot(layout = (3, 1), legend = false);
-scatter!(overall_plot[2], time_loc, y2,color = :black)
-plot!(overall_plot[2], test_time_loc, test_y2, color = :orange)
-plot!(overall_plot[2], test_time_loc, y2_out, color= :blue)
-
-scatter!(overall_plot[3], time_loc, y3, color = :black)
-plot!(overall_plot[3], test_time_loc, test_y3, color = :orange)
-plot!(overall_plot[3], test_time_loc, y3_out, color= :blue)
-
-display(overall_plot)
-
-# # Get the dimensions
-# N = length(y1)
-# M = length(pseudo_y1)
-# # Generate GP priors
-# kern = Matern52()
-# gp_prior = GP(kern, GPC())
-# # Compute Cfu by using finiteGP. This was to test the pairwise function.
-# OBSERVATION_NOISE_SIGMA = 0.05
-#
-# f = gp_prior(y1, OBSERVATION_NOISE_SIGMA^2)
-# u = gp_prior(pseudo_y1, OBSERVATION_NOISE_SIGMA^2)
-#
-# # Compute DTC using our function
-# time_kernel = Matern52()
-# temporal_noise_sigma = 0.04
-#
-# # Create time LGSSM
-# time_prior = GP(time_kernel, GPC())
-# time_finite_gp = time_prior(time_loc, temporal_noise_sigma^2)
-# noise_matrix = cov(time_finite_gp)
-#
-# time_sde = to_sde(time_prior, SArrayStorage(Float64))
-# time_lgssm = time_sde(time_loc, temporal_noise_sigma^2)
-#
-# # APPROX posterior
-# Cff = cov(f)  # N x N
-# Cfu = cov(f, u)  # N x M array
-# Cuf = Cfu'  # M x N
-# Cuu = cov(u)  # M x M
-# # Upper and lower cholesky factorizations of Cuu
-# U_u = cholesky(Symmetric(Cuu)).U  # M x M array
-# L_u = U_u'
-#
-# # Compute B_ef. First compute beta_interm = U_y' \ Cfu
-# beta_interm = zeros((N, M)) # zero initialization
-# # Iterate over the columns of Cfu and call decorrelate to construct beta
-# for col_index = 1:M
-#     col = Cfu[:, col_index]
-#     # Call decorrelate to compute that column in beta
-#     _, col_beta = decorrelate(time_lgssm, col)
-#     beta_interm[:, col_index] = col_beta
-# end
-#
-# B_ef = L_u \ beta_interm'  # M x N array
-#
-# # Compute b_y by calling decorrelate
-# _, b_y = decorrelate(time_lgssm, outputs - mean(f))
-#
-# # Continue as in the usual DTC case.
-# # This is because we no longer have N x N arrays.
-# D = B_ef * B_ef' + I  # M x M array. It is Λ_ϵ
-# chol_D = cholesky(Symmetric(D))  # low cost decomp to compute Lambda_e
-# m_e = chol_D \ (B_ef * b_y)  # M array. It is m_ϵ
-#
-# # Compare against reference
-#
-# D_ref, m_ε_ref, = approx_posterior_ref(f, outputs, u, noise_matrix)
-#
-# D_diff = sum(D - D_ref)
-# m_e_diff = sum(m_e - m_ε_ref)  # Stays
-# println("D diff $(D_diff)")
-# println("m_e diff $(m_e_diff)")
-#
-# # Now use these to compute the mean and var of q(f)
-# # q_e = MvNormal(m_e, Symmetric(inv(D)))
-# q_e = compute_q_u(
-#     input_locations,
-#     pseudo_input_locations, # pseudo-input locations in the samee domain as v
-#     time_loc, # the time locations correspondiing to v
-#     outputs;  # the ouput training data coresp to v
-#     out_kernel = kern,  # kernel of the GP used on input points
-#     time_kernel = time_kernel,  # kernel of the GP used on temporal locations
-#     temporal_noise_sigma = temporal_noise_sigma  # TODO: This will need to be optimized
-#     )
-#
-# # Get the testing data
-# test_time_loc = x_true
-# test_y1 = y_true[1]
-# true_test_outputs = y_true[2]
-#
-# # Concatenate data locations with inference locations to get f*
-# time_loc_concat = vcat(time_loc, test_time_loc)
-# y1_concat = vcat(y1, test_y1)
-# # Outputs, which a sentinel value in the places where we make inference.
-# outputs_concat = vcat(outputs, repeat([0], length(test_time_loc)))
-# # Get the permutation for sorting the locations
-# sorting_perm = sortperm(time_loc_concat)
-# reverse_perm = sortperm(sorting_perm)
-# # Sort the inputs so that time is ascendent (for LGSSM)
-# time_loc_star = time_loc_concat[sorting_perm]
-# y1_star = y1_concat[sorting_perm]
-# outputs_star = outputs_concat[sorting_perm]
-#
-# Cfu_star = pairwise(kern, y1_star, pseudo_y1)  # Cf*u
-#
-# function generate_fx_sample()
-#     # Generate an fx sample by sampling q_e and plugging it in qf_mean.
-#     # This is possible because Cff_hat is low rank (many 0 val eigenvals)
-#     m_e = rand(q_e)
-#     # Also add the prior mean here if nonzero
-#     fx_sample = Cfu_star * (U_u \ (m_e))
-# end
-#
-# # Create the LGSSM And get ft by doing y - fx and using pseudo_rand
-# noise_vector_concat = vcat(
-#     repeat([temporal_noise_sigma^2], length(time_loc)),
-#     repeat([1e10], length(test_time_loc)))  # infinite variance in inference loc
-# noise_vector_star = noise_vector_concat[sorting_perm]
-#
-# time_lgssm_star = time_sde(time_loc_star, noise_vector_star)
-#
-# function monte_carlo_f_star(iterations)
-#     acc = zeros(length(time_loc_star))
-#     for _ in 1:iterations
-#         fx = generate_fx_sample()
-#         y_star = outputs_star - fx
-#
-#         _, y_smooth, _ = smooth(time_lgssm_star, y_star)
-#         y_smooth = [f.m[1] for f in y_smooth]
-#         f_star = fx + y_smooth
-#         acc = acc + f_star
-#     end
-#     return acc / iterations
-# end
-#
-# inferred_f = monte_carlo_f_star(100)
-# inf_test_out = inferred_f[reverse_perm][length(time_loc) + 1:length(inferred_f)]
 
 
 # Change Cfu to Cf*u ...f -> f*
