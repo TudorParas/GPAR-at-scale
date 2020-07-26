@@ -19,6 +19,7 @@ function get_optim_scaled_gpar_params(
     i_log_time_l=nothing, i_log_time_var=nothing, i_log_out_l=nothing,
     i_log_out_var=nothing, i_log_noise_sigma=nothing,
     optimization_time_limit=1000.0,
+    show_optimization_trace=false,
     debug::Bool=false,
     storage = SArrayStorage(Float64), # storage used for TemporalGPs
     )
@@ -54,7 +55,10 @@ function get_optim_scaled_gpar_params(
         println("\ti_time_l=$(i_time_l); i_time_var=$(i_time_var); i_out_l=$(i_out_l); i_out_var=$(i_out_var); i_noise_sigma=$(i_noise_sigma)")
     end
 
-    results = Optim.optimize(nlml, params, NelderMead(), Optim.Options(time_limit = optimization_time_limit, show_trace=true))
+    results = Optim.optimize(nlml, params, NelderMead(),
+            Optim.Options(
+                time_limit = optimization_time_limit,
+                show_trace=show_optimization_trace))
     opt_params = unpack_gpar(results.minimizer)
 
     if debug

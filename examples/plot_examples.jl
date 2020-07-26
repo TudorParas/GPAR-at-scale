@@ -35,7 +35,7 @@ function plot_optimized_example()
         time_kernel = Matern52(),
         out_kernel = EQ(),
         multi_input = true,
-        debug = false,
+        debug = true,
     )
     f3_gpar_post = create_optim_gpar_post(
         [x, y_obs[1], y_obs[2]],
@@ -43,7 +43,7 @@ function plot_optimized_example()
         time_kernel = Matern52(),
         out_kernel = Matern52(),
         multi_input = true,
-        debug = false,
+        debug = true,
     )
 
 
@@ -90,19 +90,37 @@ function plot_optimized_example()
         )
 
         # Plot GPAR
+        function plot_gpar(plot_ref, means, stds; ylimits=nothing, standard_devs=3)
+            # Helper functions for plotting mean of GPAR and standard deviation
+            # Plot mean
+            plot!(plot_ref, x_true, means, color = :blue, linealpha = 1)
+            plot!(plot_ref, x_true, [means means];
+            linewidth=0.0,
+            linecolor=:blue,
+            fillrange=[means .- standard_devs .* stds, means .+ standard_devs * stds],
+            fillalpha=0.3,
+            fillcolor=:blue,
+            );
+        end
         # First plot is easy
-        y1_mean_vals = mean(f1_gpar_post(x_true))
-        plot!(overall_plot[1], x_true, y1_mean_vals, color = :blue, linealpha = 1)
+        f1_marginals = marginals(f1_gpar_post(x_true))
+        f1_means = mean.(f1_marginals)
+        f1_stds = std.(f1_marginals)
+        # plot_gpar(overall_plot[1], f1_means, f1_stds)
         # Use x and mean of y1 to feed into f2_gpar
-        x_y1_true = to_ColVecs([x_true, y1_mean_vals])
-        y2_mean_vals = mean(f2_gpar_post(x_y1_true))
-        plot!(overall_plot[2], x_true, y2_mean_vals, color = :blue, linealpha = 1)
+        x_y1_true = to_ColVecs([x_true, f1_means])
+        f2_marginals = marginals(f2_gpar_post(x_y1_true))
+        f2_means = mean.(f2_marginals)
+        f2_stds = std.(f2_marginals)
+        # plot_gpar(overall_plot[2], f2_means, f2_stds)
 
         # Plot f3
         # Again, collect x, y1, and y2 to feed as input location to f3
-        x_y1_y2_true = to_ColVecs([x_true, y1_mean_vals, y2_mean_vals])
-        y3_mean_vals = mean(f3_gpar_post(x_y1_y2_true))
-        plot!(overall_plot[3], x_true, y3_mean_vals, color = :blue, linealpha = 1)
+        x_y1_y2_true = to_ColVecs([x_true, f1_means, f2_means])
+        f3_marginals = marginals(f3_gpar_post(x_y1_y2_true))
+        f3_means = mean.(f3_marginals)
+        f3_stds = std.(f3_marginals)
+        # plot_gpar(overall_plot[3], f3_means, f3_stds)
 
         display(overall_plot)
     end

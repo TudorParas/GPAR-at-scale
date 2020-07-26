@@ -24,9 +24,6 @@ function create_lgssm(
 )
     # Transform the gp into a  Linear Gaussian State Space model (LGSSM)
     # This is done by indexing into the LTISDE.
-    if debug
-        println("Creating LGSSM with parameters\n\tl=$(l)\n\tprocess_var=$(process_var)\n\tnoise_sigma=$(noise_sigma)")
-    end
     # Generate the GP
     gp_kernel = kernel(kernel_structure, l = l, s = process_var^2)
     gp = GP(gp_kernel, GPC())
@@ -51,6 +48,8 @@ function get_sde_predictions(
     output_locations;
     kernel_structure::Kernel = Matern52(),
     sde_storage::SArrayStorage = SArrayStorage(Float64),
+    # Initial log param values which will be put in the optimization
+    i_log_time_l=nothing, i_log_time_var=nothing, i_log_noise_sigma=nothing,
     debug::Bool = true,
 )
     # Concatanete all the input locations
@@ -79,9 +78,16 @@ function get_sde_predictions(
         return -logpdf(lgssm, data_outputs)
     end
     # Optimize the parameters of the GP
-    params = randn(3)
+    params = parse_initial_gp_params(i_log_time_l, i_log_time_var, i_log_noise_sigma)
     results = Optim.optimize(nlml, params, NelderMead())
     opt_l, opt_process_var, opt_noise_sigma = unpack_gp(results.minimizer)
+    if debug
+        println("Finished optimizing parameters:")
+        println("\tOptimum L: $(opt_l) ")
+        println("\tOptimum Process Variance: $(opt_process_var)")
+        println("\tOptimum noise: $(opt_noise_sigma)")
+        println()
+    end
     # Create the noise vector passed into the creation of the LGSSM.
     # We assume (almost) infinite noise for the output locations
     noise_vector = vcat(

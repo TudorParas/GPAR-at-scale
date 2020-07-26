@@ -112,7 +112,7 @@ function big_synthetic_dataset()
 
     # Predictions for y2.
     # Generate u, the pseudo-points, by taking every third element
-    pseudo_y1 = range(minimum(test_y1); stop = maximum(test_y1), length=120)
+    pseudo_y1 = range(minimum(test_y1); stop = maximum(test_y1), length=50)
 
     println("Generating Y2 temporal GP predictions")
     _, y2_out_temporal = get_sde_predictions(
@@ -136,14 +136,14 @@ function big_synthetic_dataset()
         y2,  # outputs
         # Inference information
         test_time_loc,  # Time locations at which we do inference
-        [y1_out];
+        [test_y1];
         optimization_time_limit = 170.0,
         debug=true
         )  # Input locations from prev outputs
 
     # Predictions for y3
-    dim1 = range(minimum(test_y1), stop=maximum(test_y1), length=13)
-    dim2 = range(minimum(test_y2), stop=maximum(test_y2), length=13)
+    dim1 = range(minimum(test_y1), stop=maximum(test_y1), length=9)
+    dim2 = range(minimum(test_y2), stop=maximum(test_y2), length=9)
     pseudo_y3 = vec([collect(i) for i in Iterators.product(dim1, dim2)])
     pseudo_y3 = ColVecs(hcat(pseudo_y3...))
 
@@ -169,7 +169,7 @@ function big_synthetic_dataset()
         y3,  # outputs
         # Inference information
         test_time_loc,  # Time locations at which we do inference
-        [y1_out, y2_out];
+        [test_y1, y2_out];
         optimization_time_limit = 250.0,
         debug=true
         )  # Input locations from prev outputs
@@ -214,6 +214,8 @@ function big_synthetic_dataset()
     display(overall_plot)
 
 end
+
+
 
 # small_synthetic_dataset()
 

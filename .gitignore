@@ -34,3 +34,6 @@ dep_examples/
 
 # Datasets
 examples/datasets
+
+# Dissertation plots
+dissertation/
